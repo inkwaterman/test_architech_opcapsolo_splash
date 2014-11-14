@@ -1,0 +1,352 @@
+#!/bin/bash
+
+###########################################################################################################
+# Parameters
+
+YOCTO_DIRECTORY="yocto"
+cd ..
+ROOT_DIRECTORY=`pwd`
+BASEROOT_SDK=${ROOT_DIRECTORY}
+NR_CPUS=`grep -c ^processor /proc/cpuinfo`
+DEFAULT_MACHINE="iCoreM6Solo"
+WGET_TIMEOUT=60
+
+
+###########################################################################################################
+# Yocto installation
+
+cd ${ROOT_DIRECTORY}
+mkdir -p ${YOCTO_DIRECTORY}
+cd ${YOCTO_DIRECTORY}
+if [ ! -d .repo ]
+then
+    repo init -u https://github.com/Freescale/fsl-community-bsp-platform -b daisy > /dev/null 2>&1
+    [ $? -eq 0 ] || { rm -rf .repo; internet_error; }
+fi
+repo sync > /dev/null 2>&1
+
+###########################################################################################################
+# conf/local.conf customization
+
+cd ${ROOT_DIRECTORY}/yocto/build
+set_cpu_localconf ${NR_CPUS} ./conf
+
+if [ -n "`grep "^MACHINE" conf/local.conf`" ]
+then
+    MATCH_LINE=`grep "^MACHINE" conf/local.conf`
+    sed -i "s|^${MATCH_LINE}|MACHINE ??= \"${DEFAULT_MACHINE}\"|g" conf/local.conf
+else
+    echo "MACHINE ??= \"${DEFAULT_MACHINE}\"" >> conf/local.conf
+fi
+
+if [ -n "`grep "^PACKAGE_CLASSES" conf/local.conf`" ]
+then
+    MATCH_LINE=`grep "^PACKAGE_CLASSES" conf/local.conf`
+    sed -i "s|^${MATCH_LINE}|PACKAGE_CLASSES ?= \"package_ipk\"|g" conf/local.conf
+else
+    echo "PACKAGE_CLASSES ?= \"package_ipk\"" >> conf/local.conf
+fi
+
+###########################################################################################################
+# conf/bblayers.conf customization
+
+cd ${ROOT_DIRECTORY}/yocto/build
+TO_MATCH="poky/meta poky/meta-yocto poky/meta-yocto-bsp meta-xilinx meta-microzed"
+BBLAYERS=""
+BBLAYERS_FOUND=`sed -n "/^BBLAYERS /,/\"/ p" conf/bblayers.conf | sed "s|BBLAYERS||g" | sed "s|?||g" | sed "s|=||g" | sed "s|\"||g" | sed "s|\n||g" | sed "s|\\\\\\||g"`
+
+for BBLAYER in $BBLAYERS_FOUND
+do
+    BBLAYERS="$BBLAYERS $BBLAYER"
+done
+
+for CURRENT_LAYER in $TO_MATCH
+do
+    LAYER_FOUND="no"
+    for BBLAYER in $BBLAYERS
+    do
+        if [ -n "`echo $BBLAYER | grep "$CURRENT_LAYER$"`" ]
+        then
+            LAYER_FOUND="yes"
+        fi
+    done
+    if [ ${LAYER_FOUND} == "no" ]
+    then
+        CURRENT_LAYER_FULL_PATH=${ROOT_DIRECTORY}/yocto/${CURRENT_LAYER}
+        BBLAYERS="${BBLAYERS} ${CURRENT_LAYER_FULL_PATH}"
+    fi
+done
+
+BBLAYERS="BBLAYERS ?= \"${BBLAYERS}\""
+
+if [ -z "`grep "^BBLAYERS " conf/bblayers.conf`" ]
+then
+    echo "$BBLAYERS" >> conf/bblayers.conf
+else
+    NUMBER_OF_LINES=`sed -n "/^BBLAYERS /,/\"/ {=;}" conf/bblayers.conf | wc -l`
+    if [ $NUMBER_OF_LINES -gt 1 ]
+    then
+        sed -i "/^BBLAYERS /,/\"/ s/^/#/" conf/bblayers.conf
+        echo "$BBLAYERS" >> conf/bblayers.conf
+    else
+        MATCH=`grep "^BBLAYERS " conf/bblayers.conf`
+        sed -i "s|^${MATCH}|${BBLAYERS}|g" conf/bblayers.conf
+    fi
+fi
+
+###########################################################################################################
+# Installing cross-toolchain
+
+cd ${ROOT_DIRECTORY}
+
+get_remote_version http://downloads.architechboards.com/microzed/toolchain/dora
+LOCAL_VERSION=`grep "toolchain" conf/versions | awk -F":" '{print $2}'`
+debecho "LOCAL_VERSION of toolchain is ${LOCAL_VERSION}"
+while [ ${LOCAL_VERSION} -lt ${REMOTE_VERSION} ] 
+do
+		((LOCAL_VERSION++))
+		debecho "toolchian install version: ${LOCAL_VERSION}/${REMOTE_VERSION}"
+		cd ${ROOT_DIRECTORY}
+		rm -rf temp
+		mkdir -p temp
+		cd temp
+		wget --timeout=${WGET_TIMEOUT} http://downloads.architechboards.com/microzed/toolchain/dora/${LOCAL_VERSION}/toolchain.txt
+		[ $? -eq 0 ] || { cd ..; rm -rf temp; internet_error; }
+		TOOLCHAIN_TARBALL=`cat toolchain.txt | awk -F" " '{print $1}'`
+		TOOLCHAIN_MD5=`cat toolchain.txt | awk -F" " '{print $2}'`
+		INSTALL_TOOLCHAIN="yes"
+		if [ -f ../toolchain/toolchain.txt ]
+		then
+			diff ../toolchain/toolchain.txt toolchain.txt
+			if [ $? -eq 0 ]
+			then
+				INSTALL_TOOLCHAIN="no"
+			fi
+		fi
+
+		if [ "${INSTALL_TOOLCHAIN}" == "yes" ]
+		then
+			wget --timeout=${WGET_TIMEOUT} http://downloads.architechboards.com/microzed/toolchain/dora/${LOCAL_VERSION}/${TOOLCHAIN_TARBALL}.tar.gz
+			[ $? -eq 0 ] || { cd ..; rm -rf temp; internet_error; }
+			sync
+			DOWNLOAD_MD5=`md5sum ${TOOLCHAIN_TARBALL}.tar.gz | awk -F" " '{print $1}'`
+			[ "${TOOLCHAIN_MD5}" != "${DOWNLOAD_MD5}" ] && { cd ..; rm -rf temp; internet_error; }
+			tar -xzf ${TOOLCHAIN_TARBALL}.tar.gz
+			./install.sh
+			echo "${TOOLCHAIN_TARBALL} ${TOOLCHAIN_MD5}" > ../toolchain/toolchain.txt
+		fi
+
+		cd ..
+		rm -rf temp/
+		sed -i "s|toolchain:$((LOCAL_VERSION-1))|toolchain:${LOCAL_VERSION}|g" conf/versions
+done
+
+###########################################################################################################
+# Installing sdk enviroment
+
+DATE_BACKUP=`date +%d%m`
+
+# restore backup if something goes wrong
+undo_backup()
+{
+	if [ -f ${1}.$DATE_BACKUP.tgz ]; then 
+		rm -rf ${1}
+		tar -zxf ${1}.$DATE_BACKUP.tgz
+	fi
+}
+
+do_backup()
+{
+	if [ -d ${1} ]; then 
+		rm ${1}.*.tgz
+		tar -zcf ${1}.$DATE_BACKUP.tgz ${1}
+		rm -rf ${1}
+	fi
+}
+
+install_file()
+{
+	echo Install $CMD
+	URL=`echo $LINE | awk -F"@" '{print $2}'`
+	FILE=$CMD.tgz
+	do_backup $CMD
+	rm -rf $CMD
+	wget --timeout=${WGET_TIMEOUT} ${URL}
+	[ $? -eq 0 ] || { rm -f $FILE; undo_backup $CMD; rm conf/sdk.txt; internet_error; }
+	mkdir $CMD
+	tar -zxf $FILE -C $CMD
+	find ${CMD} -type f -exec sed -i "s|@BASEROOT_SDK@|${BASEROOT_SDK}|g" '{}' \;
+	[ $? -eq 0 ] || { rm -f $FILE; undo_backup $CMD; rm conf/sdk.txt; internet_error; }
+	rm -f $FILE
+}
+
+install_qt_local_libraries()
+{
+	echo Install $CMD
+	URL=`echo $LINE | awk -F"@" '{print $2}'`
+	FILE=$CMD.tgz
+	wget --timeout=${WGET_TIMEOUT} ${URL}
+	[ $? -eq 0 ] || { rm -f $FILE; rm conf/sdk.txt; internet_error; }
+	do_sudo "tar -zxf $FILE -C /usr/local"
+    do_sudo "find /usr/local/Trolltech -type f -exec sed -i \"s|@BASEROOT_SDK@|${BASEROOT_SDK}|g\" '{}' \;"
+	[ $? -eq 0 ] || { rm -f $FILE; rm conf/sdk.txt; internet_error; }
+	rm -f $FILE
+}
+
+cd $ROOT_DIRECTORY
+
+killall eclipse
+killall qtcreator
+
+get_remote_version http://downloads.architechboards.com/microzed/sdk/dora
+LOCAL_VERSION=`grep "sdk" conf/versions | awk -F":" '{print $2}'`
+debecho "LOCAL_VERSION of sdk is ${LOCAL_VERSION}"
+
+while [ ${LOCAL_VERSION} -lt ${REMOTE_VERSION} ] 
+do
+		((LOCAL_VERSION++))
+		debecho "sdk install version: ${LOCAL_VERSION}/${REMOTE_VERSION}"
+
+		# dowload script file to know what to do
+		rm -f conf/sdk.txt
+		wget --timeout=${WGET_TIMEOUT} -P conf http://downloads.architechboards.com/microzed/sdk/dora/${LOCAL_VERSION}/sdk.txt
+		[ $? -eq 0 ] || { rm conf/sdk.txt; internet_error; }
+
+		while read LINE; do
+
+			CMD=`echo "${LINE}" | awk -F"@" '{print $1}'`
+
+			if [ -f conf/sdk.txt.old ] 
+			then
+				grep "${LINE}" conf/sdk.txt.old
+				[ $? -eq 0 ] && { continue; }
+			fi
+
+			case  $CMD  in
+						# install or upgrade java runtime
+						"java")
+							echo "JAVA"
+							URL=`echo $LINE | awk -F"@" '{print $2}'`
+							FILE=`echo $LINE | awk -F"@" '{print $3}'`
+							VERSION=`echo $LINE | awk -F"@" '{print $4}'`
+
+							if [ ! -d java/$VERSION ]
+							then
+								do_backup "java"
+								rm -rf java
+								wget --timeout=${WGET_TIMEOUT} ${URL}
+								[ $? -eq 0 ] || { rm -f $FILE; undo_backup "java"; rm conf/sdk.txt; internet_error; }
+								mkdir java
+								tar -zxf $FILE -C java
+								[ $? -eq 0 ] || { rm -f $FILE; rm -rf java; undo_backup "java"; rm conf/sdk.txt; internet_error; }
+								rm -f $FILE
+								mv java/$VERSION/* java/
+							fi
+							;;
+						# install
+						"eclipse")
+							echo Install $CMD
+							URL=`echo $LINE | awk -F"@" '{print $2}'`
+							FILE=`echo $LINE | awk -F"@" '{print $3}'`
+							do_backup "eclipse"
+							rm -rf eclipse
+							wget --timeout=${WGET_TIMEOUT} ${URL}
+							[ $? -eq 0 ] || { rm -f $FILE; undo_backup "eclipse"; rm conf/sdk.txt; internet_error; }
+							tar -zxf $FILE
+							[ $? -eq 0 ] || { rm -f $FILE; undo_backup "eclipse"; rm conf/sdk.txt; internet_error; }
+							rm -f $FILE
+							;;
+						"qt-arm")
+							install_qt_local_libraries
+							;;
+						"qt-x86")
+							install_qt_local_libraries
+							;;
+						"qtcreator")
+							install_file
+							;;
+						"qt-conf")
+						# configure yocto plugin
+							echo "QT CONF"
+							URL=`echo $LINE | awk -F"@" '{print $2}'`
+							FILE=`echo $LINE | awk -F"@" '{print $3}'`
+							do_backup "qtcreator/conf"
+							rm -f qtcreator/conf
+							wget --timeout=${WGET_TIMEOUT} $URL
+							[ $? -eq 0 ] || { undo_backup "qtcreator/conf"; rm conf/sdk.txt; internet_error; }
+							tar -zxf $FILE -C qtcreator/
+							find qtcreator/ -type f -exec sed -i "s|@BASEROOT_SDK@|${BASEROOT_SDK}|g" '{}' \;
+							rm -f $FILE
+							mkdir -p ${ROOT_DIRECTORY}/workspace/qt
+							;;
+						"plugin")
+						# install or upgrade plugin of eclipse
+							echo "PLUGIN"
+							REPOSITORY=`echo $LINE | awk -F"@" '{print $2}'`
+							PLUGIN=`echo $LINE | awk -F"@" '{print $3}'`
+							VERSION=`echo $LINE | awk -F"@" '{print $4}'`
+							./eclipse/eclipse -vm java/bin -application org.eclipse.equinox.p2.director -noSplash -repository $REPOSITORY -installIUs $PLUGIN/$VERSION
+							[ $? -eq 0 ] || { rm conf/sdk.txt; internet_error; }
+							;;
+						"conf")
+						# configure yocto plugin
+							echo "CONF"
+							PATH_CONF=`echo $LINE | awk -F"@" '{print $2}'`
+							FILE=`echo $LINE | awk -F"@" '{print $3}'`
+							wget --timeout=${WGET_TIMEOUT} http://downloads.architechboards.com/microzed/sdk/dora/${LOCAL_VERSION}/$FILE
+							[ $? -eq 0 ] || { rm conf/sdk.txt; internet_error; }
+							sed -i "s|@BASEROOT_SDK@|${BASEROOT_SDK}|g" $FILE
+							mkdir -p $PATH_CONF > /dev/null 2>&1
+							mv $FILE $PATH_CONF
+							;;
+						"build_workspace")
+						# build or rebuild the workspace
+							./eclipse/eclipse -vm java/bin -nosplash -application org.eclipse.jdt.apt.core.aptBuild -data ${ROOT_DIRECTORY}/workspace/eclipse
+							mkdir -p ${ROOT_DIRECTORY}/workspace/qt
+							;;
+						"cmd")
+						# execute a shell command from the script
+							echo "CMD"
+							EXECMD=`echo "${LINE}" | awk -F"@" '{print $2}'`
+							${EXECMD}
+							;;        
+						*)
+							echo "IGNORED: ${LINE}"
+				  esac
+		done < conf/sdk.txt
+
+		[ -f conf/sdk.txt ] && { mv conf/sdk.txt conf/sdk.txt.old; }
+		sed -i "s|sdk:$((LOCAL_VERSION-1))|sdk:${LOCAL_VERSION}|g" conf/versions
+done
+
+###########################################################################################################
+# Installing documentation
+
+cd $BASEROOT_SDK
+wget --timeout=${WGET_TIMEOUT} http://downloads.architechboards.com/microzed/sdk/dora/getdoc.txt
+[ $? -eq 0 ] || { rm -f getdoc.txt; internet_error; }
+URL=`grep "@" getdoc.txt | awk -F"@" '{print $1}'`
+FILE=`grep "@" getdoc.txt | awk -F"@" '{print $2}'`
+rm getdoc.txt
+mkdir -p docs;
+if [ "${URL}" != "" -a "${FILE}" != "" ]
+then
+    wget --timeout=${WGET_TIMEOUT} ${URL}
+    [ $? -eq 0 ] || { rm -f $FILE; internet_error; }
+    unzip -o $FILE -d docs
+    rm -f $FILE
+else
+    echo "No documentation avaiable"
+fi
+
+###########################################################################################################
+# Script post-install
+
+cd $BASEROOT_SDK
+wget --timeout=${WGET_TIMEOUT} http://downloads.architechboards.com/microzed/script/dora/post-script.sh
+[ $? -eq 0 ] || { internet_error; }
+chmod 777 post-script.sh
+./post-script.sh
+rm post-script.sh
+
+exit 0
