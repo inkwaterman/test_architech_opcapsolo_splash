@@ -59,53 +59,6 @@ fi
 exit 0
 
 ###########################################################################################################
-# conf/bblayers.conf customization
-
-cd ${ROOT_DIRECTORY}/yocto/build
-TO_MATCH="poky/meta poky/meta-yocto poky/meta-yocto-bsp meta-xilinx meta-microzed"
-BBLAYERS=""
-BBLAYERS_FOUND=`sed -n "/^BBLAYERS /,/\"/ p" conf/bblayers.conf | sed "s|BBLAYERS||g" | sed "s|?||g" | sed "s|=||g" | sed "s|\"||g" | sed "s|\n||g" | sed "s|\\\\\\||g"`
-
-for BBLAYER in $BBLAYERS_FOUND
-do
-    BBLAYERS="$BBLAYERS $BBLAYER"
-done
-
-for CURRENT_LAYER in $TO_MATCH
-do
-    LAYER_FOUND="no"
-    for BBLAYER in $BBLAYERS
-    do
-        if [ -n "`echo $BBLAYER | grep "$CURRENT_LAYER$"`" ]
-        then
-            LAYER_FOUND="yes"
-        fi
-    done
-    if [ ${LAYER_FOUND} == "no" ]
-    then
-        CURRENT_LAYER_FULL_PATH=${ROOT_DIRECTORY}/yocto/${CURRENT_LAYER}
-        BBLAYERS="${BBLAYERS} ${CURRENT_LAYER_FULL_PATH}"
-    fi
-done
-
-BBLAYERS="BBLAYERS ?= \"${BBLAYERS}\""
-
-if [ -z "`grep "^BBLAYERS " conf/bblayers.conf`" ]
-then
-    echo "$BBLAYERS" >> conf/bblayers.conf
-else
-    NUMBER_OF_LINES=`sed -n "/^BBLAYERS /,/\"/ {=;}" conf/bblayers.conf | wc -l`
-    if [ $NUMBER_OF_LINES -gt 1 ]
-    then
-        sed -i "/^BBLAYERS /,/\"/ s/^/#/" conf/bblayers.conf
-        echo "$BBLAYERS" >> conf/bblayers.conf
-    else
-        MATCH=`grep "^BBLAYERS " conf/bblayers.conf`
-        sed -i "s|^${MATCH}|${BBLAYERS}|g" conf/bblayers.conf
-    fi
-fi
-
-###########################################################################################################
 # Installing cross-toolchain
 
 cd ${ROOT_DIRECTORY}
