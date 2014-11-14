@@ -31,12 +31,13 @@ git clone https://github.com/meta-qt5/meta-qt5.git -b daisy
 
 cd ${ROOT_DIRECTORY}/yocto/
 cp sources/meta-engicam/tools/engicam-setup-environment  . 
-source engicam-setup-environment build
+#mkdir -p build/conf
+#echo "ACCEPT_FSL_EULA= \" 1 \" " > build/conf/local.conf
+. engicam-setup-environment build 
 
 ###########################################################################################################
 # conf/local.conf customization
 cd ${ROOT_DIRECTORY}/yocto/build
-set_cpu_localconf ${NR_CPUS} ./conf
 
 if [ -n "`grep "^MACHINE" conf/local.conf`" ]
 then
