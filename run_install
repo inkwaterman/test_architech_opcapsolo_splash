@@ -8,7 +8,7 @@ cd ..
 ROOT_DIRECTORY=`pwd`
 BASEROOT_SDK=${ROOT_DIRECTORY}
 NR_CPUS=`grep -c ^processor /proc/cpuinfo`
-DEFAULT_MACHINE="iCoreM6Solo"
+DEFAULT_MACHINE="icorem6solo"
 WGET_TIMEOUT=60
 
 
@@ -25,14 +25,16 @@ then
 fi
 repo sync 
 
-cd ${YOCTO_DIRECTORY}/sources/
+cd sources/
 git clone https://github.com/engicam-stable/meta-engicam.git
-git clone https://github.com/meta-qt5/meta-qt5.git -d daisy
+git clone https://github.com/meta-qt5/meta-qt5.git -b daisy
 
+cd ${ROOT_DIRECTORY}/yocto/
+cp sources/meta-engicam/tools/engicam-setup-environment  . 
+source engicam-setup-environment build
 
 ###########################################################################################################
 # conf/local.conf customization
-
 cd ${ROOT_DIRECTORY}/yocto/build
 set_cpu_localconf ${NR_CPUS} ./conf
 
@@ -54,7 +56,6 @@ fi
 
 # arrivato qui
 exit 0
-
 
 ###########################################################################################################
 # conf/bblayers.conf customization
