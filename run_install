@@ -25,7 +25,7 @@ then
 fi
 repo sync 
 
-cd source/
+cd ${YOCTO_DIRECTORY}/sources/
 git clone https://github.com/engicam-stable/meta-engicam.git
 git clone https://github.com/meta-qt5/meta-qt5.git -d daisy
 
