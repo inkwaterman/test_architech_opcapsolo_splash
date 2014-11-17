@@ -4,6 +4,7 @@
 # Parameters
 
 YOCTO_DIRECTORY="yocto"
+DOC_DIRECTORY="Doc"
 cd ..
 ROOT_DIRECTORY=`pwd`
 BASEROOT_SDK=${ROOT_DIRECTORY}
@@ -71,13 +72,45 @@ else
     echo "PACKAGE_CLASSES ?= \"package_ipk\"" >> conf/local.conf
 fi
 
-# arrivato qui
-exit 0
+
+###########################################################################################################
+# Installing documentation
+
+cd ${ROOT_DIRECTORY}
+
+MD5DOCFILE="md5doc.txt"
+MD5DOCFILELOCAL="md5doc.local.txt"
+ARCHIVEDOC="doc.tar.bz2"
+
+if [ ! -d "$[DOC_DIRECTORY]" ];then
+    mkdir ${DOC_DIRECTORY}
+fi
+cd ${DOC_DIRECTORY}
+
+
+wget --timeout=${WGET_TIMEOUT}  --ftp-user 'architech' --ftp-password 'architech' ftp://engicam.smartfile.com/Documentation/${DOCFILE} 
+[ $? -eq 0 ] || { rm -f md5doc.txt; internet_error; }
+
+if diff ${MD5DOCFILE} ${MD5DOCFILELOCAL} >/dev/null ; then
+  echo Same
+  rm ${MD5DOCFILE}  
+else
+  wget --timeout=${WGET_TIMEOUT}  --ftp-user 'architech' --ftp-password 'architech' ftp://engicam.smartfile.com/Documentation/${ARCHIVEDOC}
+  [ $? -eq 0 ] || { rm -f ${ARCHIVEDOC}; internet_error; }
+    
+  tar -xvf ${ARCHIVEDOC} -C /Doc
+  rm -rf ${ARCHIVEDOC}
+  rm -rf ${MD5DOCFILELOCAL}  
+  mv ${MD5DOCFILE} ${MD5DOCFILELOCAL}  
+fi
+
+ 
 
 ###########################################################################################################
 # Installing cross-toolchain
 
 cd ${ROOT_DIRECTORY}
+
 
 get_remote_version http://downloads.architechboards.com/microzed/toolchain/dora
 LOCAL_VERSION=`grep "toolchain" conf/versions | awk -F":" '{print $2}'`
@@ -120,6 +153,11 @@ do
 		rm -rf temp/
 		sed -i "s|toolchain:$((LOCAL_VERSION-1))|toolchain:${LOCAL_VERSION}|g" conf/versions
 done
+
+
+# arrivato qui
+exit 0
+
 
 ###########################################################################################################
 # Installing sdk enviroment
@@ -298,26 +336,6 @@ do
 		[ -f conf/sdk.txt ] && { mv conf/sdk.txt conf/sdk.txt.old; }
 		sed -i "s|sdk:$((LOCAL_VERSION-1))|sdk:${LOCAL_VERSION}|g" conf/versions
 done
-
-###########################################################################################################
-# Installing documentation
-
-cd $BASEROOT_SDK
-wget --timeout=${WGET_TIMEOUT} http://downloads.architechboards.com/microzed/sdk/dora/getdoc.txt
-[ $? -eq 0 ] || { rm -f getdoc.txt; internet_error; }
-URL=`grep "@" getdoc.txt | awk -F"@" '{print $1}'`
-FILE=`grep "@" getdoc.txt | awk -F"@" '{print $2}'`
-rm getdoc.txt
-mkdir -p docs;
-if [ "${URL}" != "" -a "${FILE}" != "" ]
-then
-    wget --timeout=${WGET_TIMEOUT} ${URL}
-    [ $? -eq 0 ] || { rm -f $FILE; internet_error; }
-    unzip -o $FILE -d docs
-    rm -f $FILE
-else
-    echo "No documentation avaiable"
-fi
 
 ###########################################################################################################
 # Script post-install
