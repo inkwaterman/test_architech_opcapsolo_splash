@@ -88,14 +88,14 @@ fi
 cd ${DOC_DIRECTORY}
 
 
-wget --timeout=${WGET_TIMEOUT}  --ftp-user 'architech' --ftp-password 'architech' ftp://engicam.smartfile.com/Documentation/${DOCFILE} 
+wget --timeout=${WGET_TIMEOUT}  --ftp-user 'architech' --ftp-password 'architech' ftp://engicam.smartfile.com/Document/${DOCFILE} 
 [ $? -eq 0 ] || { rm -f md5doc.txt; internet_error; }
 
 if diff ${MD5DOCFILE} ${MD5DOCFILELOCAL} >/dev/null ; then
   echo Same
   rm ${MD5DOCFILE}  
 else
-  wget --timeout=${WGET_TIMEOUT}  --ftp-user 'architech' --ftp-password 'architech' ftp://engicam.smartfile.com/Documentation/${ARCHIVEDOC}
+  wget --timeout=${WGET_TIMEOUT}  --ftp-user 'architech' --ftp-password 'architech' ftp://engicam.smartfile.com/Document/${ARCHIVEDOC}
   [ $? -eq 0 ] || { rm -f ${ARCHIVEDOC}; internet_error; }
     
   tar -xvf ${ARCHIVEDOC} -C /Doc
