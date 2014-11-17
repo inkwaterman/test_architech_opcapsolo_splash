@@ -73,33 +73,6 @@ clean_up()
    unset MACHINE SDKMACHINE DISTRO OEROOT
 }
 
-# get command line options
-SHORTOPTS="h"
-LONGOPTS="help"
-
-ARGS=$(getopt --options $SHORTOPTS  \
-  --longoptions $LONGOPTS --name $PROGNAME -- "$@" )
-# Print the usage menu if invalid options are specified
-if [ $? != 0 -o $# -lt 1 ]; then
-   usage && clean_up
-   return 1
-fi
-
-eval set -- "$ARGS"
-while true;
-do
-    case $1 in
-        -h|--help)
-           usage
-           clean_up
-           return 0
-           ;;
-        --)
-           shift
-           break
-           ;;
-    esac
-done
 
 if [ "$(whoami)" = "root" ]; then
     echo "ERROR: do not use the BSP as root. Exiting..."
