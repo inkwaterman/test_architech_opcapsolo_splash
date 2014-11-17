@@ -156,7 +156,7 @@ fi
 
 cd $OEROOT
 
-. ./oe-init-build-env $CWD/$1 > /dev/null
+. ./oe-init-build-env $CWD/build > /dev/null
 
 # Clean up PATH, because if it includes tokens to current directories somehow,
 # wrong binaries can be used instead of the expected ones during task execution
