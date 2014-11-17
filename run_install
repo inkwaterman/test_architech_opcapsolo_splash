@@ -49,10 +49,10 @@ cp sources/meta-engicam/tools/engicam-setup-environment  .
 #mkdir -p build/conf
 #echo "ACCEPT_FSL_EULA= \" 1 \" " > build/conf/local.conf
 chmod a+x engicam-setup-environment
-gnome-terminal -e "./engicam-setup-environment build" &
-wait ${!}
+eval "./engicam-setup-environment build"
 ###########################################################################################################
 # conf/local.conf customization
+
 cd ${ROOT_DIRECTORY}/yocto/build
 
 if [ -n "`grep "^MACHINE" conf/local.conf`" ]
