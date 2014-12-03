@@ -1,5 +1,6 @@
 #!/bin/bash
 
+
 ###########################################################################################################
 # Parameters
 
@@ -12,8 +13,40 @@ NR_CPUS=`grep -c ^processor /proc/cpuinfo`
 DEFAULT_MACHINE="icorem6solo"
 WGET_TIMEOUT=60
 
+###########################################################################################################
+
+# Installing cross-toolchain
+
+cd ${ROOT_DIRECTORY}
+
+MD5SDKFILE="md5sdk.txt"
+MD5SDKFILELOCAL="md5sdk.local.txt"
+ARCHIVESDK="sdk.tar.bz2"
+
+
+wget --timeout=${WGET_TIMEOUT}  --ftp-user 'architech' --ftp-password 'architech' ftp://engicam.smartfile.com/sdk/${MD5SDKFILE} 
+[ $? -eq 0 ] || { rm -f md5doc.txt; internet_error; }
+
+if diff ${MD5DOCFILE} ${MD5DOCFILELOCAL} >/dev/null ; then
+  echo Same
+  rm ${MD5DOCFILE}  
+else
+  wget --timeout=${WGET_TIMEOUT}  --ftp-user 'architech' --ftp-password 'architech' ftp://engicam.smartfile.com/sdk/${ARCHIVESDK}
+  [ $? -eq 0 ] || { rm -f ${ARCHIVEDOC}; internet_error; }
+    
+  tar -xvf ${ARCHIVEDOC} 
+  rm -rf ${ARCHIVEDOC}
+  rm -rf ${MD5DOCFILELOCAL}  
+  mv ${MD5DOCFILE} ${MD5DOCFILELOCAL}  
+
+fi
+
+exit 0
+
+
 
 ###########################################################################################################
+
 # Yocto installation
 
 cd ${ROOT_DIRECTORY}
@@ -280,9 +313,34 @@ else
 fi
 
  
-exit 0
 ###########################################################################################################
 # Installing cross-toolchain
+
+cd ${ROOT_DIRECTORY}
+
+MD5SDKFILE="md5sdk.txt"
+MD5SDKFILELOCAL="md5sdk.local.txt"
+ARCHIVESDK="sdk.tar.bz2"
+
+
+wget --timeout=${WGET_TIMEOUT}  --ftp-user 'architech' --ftp-password 'architech' ftp://engicam.smartfile.com/sdk/${MD5SDKFILE} 
+[ $? -eq 0 ] || { rm -f md5doc.txt; internet_error; }
+
+if diff ${MD5DOCFILE} ${MD5DOCFILELOCAL} >/dev/null ; then
+  echo Same
+  rm ${MD5DOCFILE}  
+else
+  wget --timeout=${WGET_TIMEOUT}  --ftp-user 'architech' --ftp-password 'architech' ftp://engicam.smartfile.com/sdk/${ARCHIVESDK}
+  [ $? -eq 0 ] || { rm -f ${ARCHIVEDOC}; internet_error; }
+    
+  tar -xvf ${ARCHIVEDOC} 
+  rm -rf ${ARCHIVEDOC}
+  rm -rf ${MD5DOCFILELOCAL}  
+  mv ${MD5DOCFILE} ${MD5DOCFILELOCAL}  
+
+fi
+
+exit 0
 
 cd ${ROOT_DIRECTORY}
 
