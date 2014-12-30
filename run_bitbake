@@ -1,0 +1,8 @@
+#!/bin/bash
+echo $PWD
+echo "TODO"
+exit 0
+cd ../yocto
+source poky/oe-init-build-env
+gnome-terminal
+exit 0

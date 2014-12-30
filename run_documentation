@@ -1,0 +1,23 @@
+#!/bin/bash
+echo "TODO"
+exit 0
+
+YOCTO_VERSION=`git branch -a | grep "*" | awk -F" " '{print $2}'`
+BOARD_ALIAS=`cat name.txt | tr [:upper:] [:lower:] | tr ' ' '-'`
+WGET_TIMEOUT=2
+
+function firefox_offline()
+{
+    local HTML
+    HTML=`find ../docs -name index.html`
+    zenity --error --text "Impossible to connect to internet. We will open the offline documentation.\nThis may not be the last version."
+    firefox ${HTML}
+}
+
+wget --timeout=${WGET_TIMEOUT} http://downloads.architechboards.com/${BOARD_ALIAS}/sdk/${YOCTO_VERSION}/getdoc.txt
+[ $? -eq 0 ] || { rm -f getdoc.txt; firefox_offline; exit 0; }
+URL=`grep "SITE=" getdoc.txt | awk -F"=" '{print $2}'`
+rm getdoc.txt
+firefox ${URL}
+
+exit 0

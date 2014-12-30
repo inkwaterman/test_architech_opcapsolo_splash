@@ -1,0 +1,7 @@
+#!/bin/bash
+echo "TODO"
+exit 0
+cd ../sysroot
+source ../toolchain/environment
+gnome-terminal
+exit 0

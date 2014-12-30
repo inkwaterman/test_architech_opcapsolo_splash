@@ -1,0 +1,7 @@
+#!/bin/bash
+echo "TODO"
+exit 0
+cd ../yocto
+source poky/oe-init-build-env
+hob
+exit 0

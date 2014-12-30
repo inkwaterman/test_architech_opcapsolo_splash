@@ -1,0 +1,13 @@
+#!/bin/bash
+echo "TODO"
+exit 0
+IMAGES_DIRECTORY="../yocto/build/tmp/deploy/images/zedboard-zynq7"
+
+if [ ! -d ${IMAGES_DIRECTORY} ]
+then
+   zenity --error --text="You haven't built an image yet!" 
+else
+   nautilus ${IMAGES_DIRECTORY}
+fi
+
+exit 0
