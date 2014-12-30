@@ -1,7 +1,4 @@
 #!/bin/bash
-echo "TODO"
-exit 0
-cd ../sysroot
-source ../toolchain/environment
+source ../sdk/environment-setup-cortexa9hf-vfp-neon-poky-linux-gnueabi
 gnome-terminal
 exit 0

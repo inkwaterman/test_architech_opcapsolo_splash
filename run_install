@@ -4,8 +4,7 @@
 ###########################################################################################################
 # Parameters
 
-YOCTO_DIRECTORY="yocto"
-DOC_DIRECTORY="Doc"
+
 cd ..
 ROOT_DIRECTORY=`pwd`
 BASEROOT_SDK=${ROOT_DIRECTORY}
@@ -23,15 +22,48 @@ MD5SDKFILE="md5sdk.txt"
 MD5SDKFILELOCAL="md5sdk.local.txt"
 ARCHIVESDK="sdk.tar.bz2"
 
+MD5SDKFILE="md5sdk.txt"
+MD5SDKFILELOCAL="md5sdk.local.txt"
+ARCHIVESDK="sdk.tar.bz2"
+SDKBIN="poky-eglibc-i686-meta-toolchain-qt5-cortexa9hf-vfp-neon-toolchain-1.6.1.sh"
+
 
 wget --timeout=${WGET_TIMEOUT}  --ftp-user 'architech' --ftp-password 'architech' ftp://engicam.smartfile.com/sdk/${MD5SDKFILE} 
+[ $? -eq 0 ] || { rm -f md5sdk.txt; internet_error; }
+
+if diff ${MD5SDKFILE} ${MD5SDKFILELOCAL} >/dev/null ; then
+  echo Same
+  rm ${MD5SDKFILE}  
+else
+  wget --timeout=${WGET_TIMEOUT}  --ftp-user 'architech' --ftp-password 'architech' ftp://engicam.smartfile.com/sdk/${ARCHIVESDK}
+  [ $? -eq 0 ] || { rm -f ${ARCHIVESDK}; internet_error; }
+    
+  tar -xvf ${ARCHIVESDK} 
+  rm -rf ${ARCHIVESDK}
+  rm -rf ${MD5SDKFILELOCAL}  
+  ./${SDKBIN} -y -d ./sdk
+  rm -rf ${SDKBIN}
+  mv ${MD5SDKFILE} ${MD5SDKFILELOCAL}  
+fi
+
+###########################################################################################################
+# Installing documentation
+
+cd ${ROOT_DIRECTORY}
+
+MD5DOCFILE="md5doc.txt"
+MD5DOCFILELOCAL="md5doc.local.txt"
+ARCHIVEDOC="doc.tar.bz2"
+
+
+wget --timeout=${WGET_TIMEOUT}  --ftp-user 'architech' --ftp-password 'architech' ftp://engicam.smartfile.com/Document/${MD5DOCFILE} 
 [ $? -eq 0 ] || { rm -f md5doc.txt; internet_error; }
 
 if diff ${MD5DOCFILE} ${MD5DOCFILELOCAL} >/dev/null ; then
   echo Same
   rm ${MD5DOCFILE}  
 else
-  wget --timeout=${WGET_TIMEOUT}  --ftp-user 'architech' --ftp-password 'architech' ftp://engicam.smartfile.com/sdk/${ARCHIVESDK}
+  wget --timeout=${WGET_TIMEOUT}  --ftp-user 'architech' --ftp-password 'architech' ftp://engicam.smartfile.com/Document/${ARCHIVEDOC}
   [ $? -eq 0 ] || { rm -f ${ARCHIVEDOC}; internet_error; }
     
   tar -xvf ${ARCHIVEDOC} 
@@ -41,15 +73,13 @@ else
 
 fi
 
-exit 0
-
-
+ 
 
 ###########################################################################################################
-
 # Yocto installation
 
-cd ${ROOT_DIRECTORY}
+YOCTO_DIRECTORY="yocto"
+
 mkdir -p ${YOCTO_DIRECTORY}
 cd ${YOCTO_DIRECTORY}
 if [ ! -d .repo ]
@@ -77,242 +107,18 @@ else
     git clone https://github.com/meta-qt5/meta-qt5.git -b daisy
 fi
 
+cd ..
 
-cd ${ROOT_DIRECTORY}/yocto/
-NCPU=`grep -c processor /proc/cpuinfo`
-CWD=`pwd`
-PROGNAME="setup-environment"
-
-usage()
-{
-    echo -e "\nUsage: source $PROGNAME <build-dir>
-    <build-dir>: specifies the build directory location (required)
-
-If undefined, this script will set \$MACHINE to 'icorem6solo'.
-
-Supported machines: `echo; ls sources/*/conf/machine/*.conf \
-| sed s/\.conf//g | sed -r 's/^.+\///' | xargs -I% echo -e "\t%"`
-
-To build for a machine listed above, run this script as:
-MACHINE=<machine> source $PROGNAME <build-dir>
-"
-}
-
-clean_up()
-{
-   unset EULA LIST_MACHINES VALID_MACHINE
-   unset NCPU CWD TEMPLATES SHORTOPTS LONGOPTS ARGS PROGNAME
-   unset generated_config updated
-   unset MACHINE SDKMACHINE DISTRO OEROOT
-}
-
-
-if [ "$(whoami)" = "root" ]; then
-    echo "ERROR: do not use the BSP as root. Exiting..."
-fi
-
-if [ -z "$MACHINE" ]; then
-    MACHINE='icorem6solo'
-fi
-
-# Check the machine type specified
-LIST_MACHINES=`ls -1 $CWD/sources/*/conf/machine`
-VALID_MACHINE=`echo -e "$LIST_MACHINES" | grep ${MACHINE}.conf$ | wc -l`
-if [ "x$MACHINE" = "x" ] || [ "$VALID_MACHINE" = "0" ]; then
-    echo -e "\nThe \$MACHINE you have specified ($MACHINE) is not supported by this build setup"
-    usage && clean_up
-    return 1
+if [ -d "build_opcapsolo" ]; then
+    cd build_opcapsolo
+    git pull origin master
+    cd ..
 else
-    if [ ! -e $1/conf/local.conf.sample ]; then
-        echo "Configuring for ${MACHINE}"
-    fi
-fi
-
-if [ -z "$SDKMACHINE" ]; then
-    SDKMACHINE='i686'
-fi
-
-if [ -z "$DISTRO" ]; then
-    DISTRO='poky'
-fi
-
-OEROOT=sources/poky
-if [ -e sources/oe-core ]; then
-    OEROOT=sources/oe-core
-fi
-
-# Ensure all files in sources/base are kept in sync with project root
-updated=
-for f in $CWD/sources/meta-engicam/base/*; do
-    file="$(basename $f)"
-    if [ "$file" = "conf" ] || echo $file | grep -q '~$'; then
-        continue
-    fi
-
-    if ! cmp -s "$file" "$f"; then
-        updated="true"
-        [ -e $file ] && chmod u+w $file
-        cp $f $file
-    fi
-done
-if [ "$updated" = "true" ]; then
-    echo "The project root content has been updated. Please run '$PROGNAME' again."
-    return
-fi
-
-cd $OEROOT
-
-. ./oe-init-build-env $CWD/build > /dev/null
-
-# Clean up PATH, because if it includes tokens to current directories somehow,
-# wrong binaries can be used instead of the expected ones during task execution
-export PATH="`echo $PATH | sed 's/\(:.\|:\)*:/:/g;s/^.\?://;s/:.\?$//'`"
-
-generated_config=
-if [ ! -e conf/local.conf.sample ]; then
-    mv conf/local.conf conf/local.conf.sample
-
-    # Generate the local.conf based on the Yocto defaults
-    TEMPLATES=$CWD/sources/meta-engicam/base/conf 
-    grep -v '^#\|^$' conf/local.conf.sample > conf/local.conf
-    cat >> conf/local.conf <<EOF
-
-BB_NUMBER_THREADS = '$NCPU'
-PARALLEL_MAKE = '-j $NCPU'
-
-DL_DIR ?= "\${BSPDIR}/downloads/"
-
-DISTRO_FEATURES_remove = "x11 wayland"
-
-UBOOT_CONFIG="sd"
-
-EOF
-    # Change settings according environment
-    sed -e "s,MACHINE ??=.*,MACHINE ??= '$MACHINE',g" \
-        -e "s,SDKMACHINE ??=.*,SDKMACHINE ??= '$SDKMACHINE',g" \
-        -e "s,DISTRO ?=.*,DISTRO ?= '$DISTRO',g" \
-        -i conf/local.conf
-
-    cp $TEMPLATES/* conf/
-
-    for s in $HOME/.oe $HOME/.yocto; do
-        if [ -e $s/site.conf ]; then
-            echo "Linking $s/site.conf to conf/site.conf"
-            ln -s $s/site.conf conf
-        fi
-    done
-
-    generated_config=1
+    git clone https://github.com/inkwaterman/build_opcapsolo.git
 fi
 
 
-if [ "$EULA" = "ask" ]; then
-    cat <<EOF
 
-Some BSPs depend on libraries and packages which are covered by Freescale's
-End User License Agreement (EULA). To have the right to use these binaries in
-your images, you need to read and accept the following...
-
-EOF
-
-    more -d $CWD/sources/meta-fsl-arm/EULA
-fi
-
-if grep -q '^ACCEPT_FSL_EULA\s*=' conf/local.conf; then
-    sed -i "s/^#*ACCEPT_FSL_EULA\s*=.*/ACCEPT_FSL_EULA = \"$EULA\"/g" conf/local.conf
-else
-    echo "ACCEPT_FSL_EULA = \"$EULA\"" >> conf/local.conf
-fi
-
-cat <<EOF
-
-Welcome to Engicam BSP based on Freescale Community BSP
-
-The Yocto Project has extensive documentation about OE including a
-reference manual which can be found at:
-    http://yoctoproject.org/documentation
-
-For more information about OpenEmbedded see their website:
-    http://www.openembedded.org/
-
-You can now run 'bitbake <target>'
-
-Common targets are:
-    core-image-minimal
-    meta-toolchain
-    meta-toolchain-sdk
-    adt-installer
-    meta-ide-support
-
-EOF
-
-if [ -n "$generated_config" ]; then
-    cat <<EOF
-Your build environment has been configured with:
-
-    MACHINE=$MACHINE
-    SDKMACHINE=$SDKMACHINE
-    DISTRO=$DISTRO
-    EULA=$EULA
-EOF
-else
-    echo "Your configuration files at $1 have not been touched."
-fi
-###########################################################################################################
-# conf/local.conf customization
-
-cd ${ROOT_DIRECTORY}/yocto/build
-
-if [ -n "`grep "^MACHINE" conf/local.conf`" ]
-then
-    MATCH_LINE=`grep "^MACHINE" conf/local.conf`
-    sed -i "s|^${MATCH_LINE}|MACHINE ??= \"${DEFAULT_MACHINE}\"|g" conf/local.conf
-else
-    echo "MACHINE ??= \"${DEFAULT_MACHINE}\"" >> conf/local.conf
-fi
-
-if [ -n "`grep "^PACKAGE_CLASSES" conf/local.conf`" ]
-then
-    MATCH_LINE=`grep "^PACKAGE_CLASSES" conf/local.conf`
-    sed -i "s|^${MATCH_LINE}|PACKAGE_CLASSES ?= \"package_ipk\"|g" conf/local.conf
-else
-    echo "PACKAGE_CLASSES ?= \"package_ipk\"" >> conf/local.conf
-fi
-
-
-###########################################################################################################
-# Installing documentation
-
-cd ${ROOT_DIRECTORY}
-
-MD5DOCFILE="md5doc.txt"
-MD5DOCFILELOCAL="md5doc.local.txt"
-ARCHIVEDOC="doc.tar.bz2"
-
-if [ ! -d "$[DOC_DIRECTORY]" ];then
-    mkdir ${DOC_DIRECTORY}
-fi
-
-cd ${DOC_DIRECTORY}
-
-
-wget --timeout=${WGET_TIMEOUT}  --ftp-user 'architech' --ftp-password 'architech' ftp://engicam.smartfile.com/Document/${MD5DOCFILE} 
-[ $? -eq 0 ] || { rm -f md5doc.txt; internet_error; }
-
-if diff ${MD5DOCFILE} ${MD5DOCFILELOCAL} >/dev/null ; then
-  echo Same
-  rm ${MD5DOCFILE}  
-else
-  wget --timeout=${WGET_TIMEOUT}  --ftp-user 'architech' --ftp-password 'architech' ftp://engicam.smartfile.com/Document/${ARCHIVEDOC}
-  [ $? -eq 0 ] || { rm -f ${ARCHIVEDOC}; internet_error; }
-    
-  tar -xvf ${ARCHIVEDOC} 
-  rm -rf ${ARCHIVEDOC}
-  rm -rf ${MD5DOCFILELOCAL}  
-  mv ${MD5DOCFILE} ${MD5DOCFILELOCAL}  
-fi
-
- 
 ###########################################################################################################
 # Installing cross-toolchain
 
@@ -341,52 +147,6 @@ else
 fi
 
 exit 0
-
-cd ${ROOT_DIRECTORY}
-
-
-get_remote_version http://downloads.architechboards.com/microzed/toolchain/dora
-LOCAL_VERSION=`grep "toolchain" conf/versions | awk -F":" '{print $2}'`
-debecho "LOCAL_VERSION of toolchain is ${LOCAL_VERSION}"
-while [ ${LOCAL_VERSION} -lt ${REMOTE_VERSION} ] 
-do
-		((LOCAL_VERSION++))
-		debecho "toolchian install version: ${LOCAL_VERSION}/${REMOTE_VERSION}"
-		cd ${ROOT_DIRECTORY}
-		rm -rf temp
-		mkdir -p temp
-		cd temp
-		wget --timeout=${WGET_TIMEOUT} http://downloads.architechboards.com/microzed/toolchain/dora/${LOCAL_VERSION}/toolchain.txt
-		[ $? -eq 0 ] || { cd ..; rm -rf temp; internet_error; }
-		TOOLCHAIN_TARBALL=`cat toolchain.txt | awk -F" " '{print $1}'`
-		TOOLCHAIN_MD5=`cat toolchain.txt | awk -F" " '{print $2}'`
-		INSTALL_TOOLCHAIN="yes"
-		if [ -f ../toolchain/toolchain.txt ]
-		then
-			diff ../toolchain/toolchain.txt toolchain.txt
-			if [ $? -eq 0 ]
-			then
-				INSTALL_TOOLCHAIN="no"
-			fi
-		fi
-
-		if [ "${INSTALL_TOOLCHAIN}" == "yes" ]
-		then
-			wget --timeout=${WGET_TIMEOUT} http://downloads.architechboards.com/microzed/toolchain/dora/${LOCAL_VERSION}/${TOOLCHAIN_TARBALL}.tar.gz
-			[ $? -eq 0 ] || { cd ..; rm -rf temp; internet_error; }
-			sync
-			DOWNLOAD_MD5=`md5sum ${TOOLCHAIN_TARBALL}.tar.gz | awk -F" " '{print $1}'`
-			[ "${TOOLCHAIN_MD5}" != "${DOWNLOAD_MD5}" ] && { cd ..; rm -rf temp; internet_error; }
-			tar -xzf ${TOOLCHAIN_TARBALL}.tar.gz
-			./install.sh
-			echo "${TOOLCHAIN_TARBALL} ${TOOLCHAIN_MD5}" > ../toolchain/toolchain.txt
-		fi
-
-		cd ..
-		rm -rf temp/
-		sed -i "s|toolchain:$((LOCAL_VERSION-1))|toolchain:${LOCAL_VERSION}|g" conf/versions
-done
-
 
 # arrivato qui
 exit 0
