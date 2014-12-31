@@ -1,7 +1,5 @@
 #!/bin/bash
-echo "TODO"
-exit 0
-IMAGES_DIRECTORY="../yocto/build/tmp/deploy/images/zedboard-zynq7"
+IMAGES_DIRECTORY="../img"
 
 if [ ! -d ${IMAGES_DIRECTORY} ]
 then

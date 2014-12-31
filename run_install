@@ -146,8 +146,6 @@ else
 
 fi
 
-exit 0
-
 # arrivato qui
 exit 0
 

@@ -30,6 +30,9 @@ else
     git clone https://github.com/meta-qt5/meta-qt5.git -b daisy
 fi
 
+rm -rf meta-fsl-arm/recipes-graphics/mesa
+rm -rf poky/meta/recipes-graphics/mesa
+
 cd ..
 
 if [ -d "build_opcapsolo" ]; then
