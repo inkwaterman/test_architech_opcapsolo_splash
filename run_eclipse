@@ -1,6 +1,4 @@
 #!/bin/bash
-echo "TODO"
-exit 0
 cd ..
 ROOTDIR_SDK=`pwd`
 cd eclipse

@@ -1,5 +1,6 @@
 #!/bin/bash
-echo "TODO"
+echo $PWD
+zenity --error --text="TODO" 
 exit 0
 zenity --error --text="No QT for Microzed!"
 exit 0

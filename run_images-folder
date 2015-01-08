@@ -1,5 +1,5 @@
 #!/bin/bash
-IMAGES_DIRECTORY="../img"
+IMAGES_DIRECTORY="../yocto/build_opcapsolo/tmp/deploy/images/icorem6solo/"
 
 if [ ! -d ${IMAGES_DIRECTORY} ]
 then
