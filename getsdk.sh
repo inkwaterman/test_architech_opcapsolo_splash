@@ -1,9 +1,11 @@
 
+
 WGET_TIMEOUT=10
 
-FILECHECK="doc.tar.bz2"
-DIRECTORY="doc"
+FILECHECK="opcap_sdk.sh.tar.bz2"
+DIRECTORY="sdk"
 
+SDKBIN="opcap_sdk.sh"
 ROOT_DIRECTORY=`pwd`
 BASEROOT_SDK=${ROOT_DIRECTORY}
 
@@ -43,7 +45,9 @@ else
   fi
 
   tar -xvf ${ARCHIVEFILE} 
+  ./${SDKBIN} -y -d ${DIRECTORY}
   rm -rf ${ARCHIVEFILE}
+  rm -rf ${SDKBIN}
 
   rm -rf ${MD5FILELOCAL}  
   mv ${MD5FILE} ${MD5FILELOCAL}
@@ -53,7 +57,4 @@ else
 
 fi
 
-exit 0
-
-cd ${ROOT_DIRECTORY}
 
