@@ -1,5 +1,8 @@
 #!/bin/bash
-./getdocs.sh
+
+cd ..
+
+./splashscreen/getdocs.sh
 
 if [ $? -e 1 ]; then
     echo "error in DOC update procedure"
@@ -8,7 +11,7 @@ if [ $? -e 1 ]; then
 fi
 
 
-./getyocto.sh
+./splashscreen/getyocto.sh
 
 if [ $? -e 1 ]; then
     zenity --error --title="network error" --text="Unable to retrieve sources packet"
@@ -16,7 +19,7 @@ if [ $? -e 1 ]; then
 fi
 
 
-./getsdk.sh
+./splashscreen/getsdk.sh
 
 if [ $? -e 1 ]; then
     zenity --error --title="network error" --text="Unable to retrieve sdk packet"
