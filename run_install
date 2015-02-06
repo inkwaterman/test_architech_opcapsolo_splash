@@ -16,5 +16,11 @@ if [ $? -e 1 ]; then
 fi
 
 
+./getsdk.sh
+
+if [ $? -e 1 ]; then
+    zenity --error --title="network error" --text="Unable to retrieve sdk packet"
+    exit 1
+fi
 
 
