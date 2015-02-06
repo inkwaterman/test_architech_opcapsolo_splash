@@ -1,7 +1,20 @@
 #!/bin/bash
-./gestdocs.sh
+./getdocs.sh
 
-if [ $? -ne 0 ]; then
+if [ $? -e 1 ]; then
     echo "error in DOC update procedure"
+    zenity --error --title="network error" --text="Unable to retrieve DOCS packet"
     exit 1
 fi
+
+
+./getyocto.sh
+
+if [ $? -e 1 ]; then
+    zenity --error --title="network error" --text="Unable to retrieve sources packet"
+    exit 1
+fi
+
+
+
+
