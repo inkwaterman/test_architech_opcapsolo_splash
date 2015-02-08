@@ -44,7 +44,7 @@ function  eula_LGPL3()
 {
     zenity --text-info \
            --title="License" \
-           --filename= splashscreen/LGPL3.txt\
+           --filename=splashscreen/LGPL3.txt\
            --checkbox="I read and accept the terms."
 
     case $? in
