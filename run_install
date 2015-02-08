@@ -3,35 +3,30 @@
 cd ..
 
 ./splashscreen/getdocs.sh
-sleep 10
+
 if [ $? -e 1 ]; then
     echo "error in DOC update procedure"
     zenity --error --title="network error" --text="Unable to retrieve DOCS packet"
     exit 1
 fi
-sleep 10
 
 ./splashscreen/getyocto.sh
-sleep 10
+
 if [ $? -e 1 ]; then
     zenity --error --title="network error" --text="Unable to retrieve sources packet"
     exit 1
 fi
-sleep 10
 
 ./splashscreen/getsdk.sh
-sleep 10
+
 if [ $? -e 1 ]; then
     zenity --error --title="network error" --text="Unable to retrieve sdk packet"
     exit 1
 fi
 
-sleep 10
 ./splashscreen/getqtcreator.sh
-sleep 10
 if [ $? -e 1 ]; then
     zenity --error --title="network error" --text="Unable to retrieve QT packet"
     exit 1
 fi
-sleep 10
 
